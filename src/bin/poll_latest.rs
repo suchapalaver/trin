@@ -114,8 +114,8 @@ pub async fn main() -> Result<()> {
     let client = HttpClientBuilder::default().build(audit_config.node_ip)?;
     let metrics = Arc::new(Mutex::new(Metrics::default()));
     while let Some(block) = stream.next().await {
-        let block_hash = block.header.hash;
-        let block_number = block.header.number;
+        let block_hash = block.hash;
+        let block_number = block.number;
         info!("Found new block {block_hash}");
         let timestamp = Instant::now();
         let metrics = metrics.clone();

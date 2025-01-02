@@ -1,17 +1,14 @@
 use alloy::{
     primitives::{Address, Bytes, B256, U256},
-    rlp::{self, Encodable},
     rpc::types::{
         Block, BlockId, BlockNumberOrTag, BlockTransactions, TransactionRequest, Withdrawal,
+        Withdrawals,
     },
 };
 use ethportal_api::{
     jsonrpsee::types::{error::CALL_EXECUTION_FAILED_CODE, ErrorObjectOwned},
     types::{
-        execution::{
-            block_body::BlockBody,
-            transaction::{Transaction, TransactionWithRlpHeader},
-        },
+        execution::{block_body::BlockBody, transaction::Transaction},
         jsonrpc::{
             endpoints::HistoryEndpoint,
             request::{HistoryJsonRpcRequest, StateJsonRpcRequest},
@@ -212,34 +209,15 @@ impl EthApi {
         let uncles = body.uncles().iter().map(|uncle| uncle.hash()).collect();
         let withdrawals = body
             .withdrawals()
-            .map(|withdrawals| withdrawals.iter().map(Withdrawal::from).collect());
-
-        // Calculate block size:
-        //   len(rlp(header, transactions, uncles, withdrawals))
-        // Note: transactions are encoded with header
-        let size = {
-            let payload_size = header.length()
-                + body
-                    .transactions()
-                    .iter()
-                    .cloned()
-                    .map(TransactionWithRlpHeader)
-                    .collect::<Vec<_>>()
-                    .length()
-                + rlp::list_length(body.uncles())
-                + match body.withdrawals() {
-                    Some(withdrawals) => rlp::list_length(withdrawals),
-                    None => 0,
-                };
-            payload_size + rlp::length_of_length(payload_size)
-        };
+            .map(|withdrawals| Withdrawals(withdrawals.iter().map(Withdrawal::from).collect()));
 
         // Combine header and block body into the single json representation of the block.
         let block = Block {
-            header: header.into(),
+            header: header.try_into().map_err(|_| {
+                RpcServeError::Message("Error converting to RPC types header".to_string())
+            })?,
             transactions,
             uncles,
-            size: Some(U256::from(size)),
             withdrawals,
         };
         Ok(block)

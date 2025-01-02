@@ -1,12 +1,19 @@
 use alloy::{
+    consensus::Header as ConsensusHeader,
     primitives::{keccak256, Address, Bloom, Bytes, B256, B64, U256, U64},
     rlp::{self, Decodable, Encodable},
     rpc::types::Header as RpcHeader,
 };
 use bytes::Buf;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use thiserror::Error;
 
 use crate::utils::bytes::{hex_decode, hex_encode};
+
+/// Error thrown when failed to convert [`Header`].
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[error("Error converting header: {0}")]
+pub struct HeaderConversionError(String);
 
 /// A block header.
 #[derive(Debug, Clone, Eq, Deserialize, Serialize)]
@@ -255,9 +262,31 @@ impl PartialEq for Header {
 ///
 /// This allows us to easily prepare a header for an RPC response.
 /// RpcHeader is a field in reth's `Block` RPC type used in eth_getBlockByHash, for example.
-impl From<Header> for RpcHeader {
-    fn from(header: Header) -> Self {
+impl TryFrom<Header> for RpcHeader {
+    type Error = HeaderConversionError;
+
+    fn try_from(header: Header) -> Result<Self, Self::Error> {
         let hash = header.hash();
+        let inner = header.try_into()?;
+
+        Ok(Self {
+            hash,
+            inner,
+            // We don't have access to total_difficulty
+            //
+            // Note: This field is now effectively deprecated: <https://github.com/ethereum/execution-apis/pull/570>
+            total_difficulty: None,
+            // We don't have access to size
+            size: None,
+        })
+    }
+}
+
+/// Convert the standard header into a alloy-consensus header type.
+impl TryFrom<Header> for ConsensusHeader {
+    type Error = HeaderConversionError;
+
+    fn try_from(header: Header) -> Result<Self, Self::Error> {
         let Header {
             parent_hash,
             uncles_hash,
@@ -281,32 +310,33 @@ impl From<Header> for RpcHeader {
             parent_beacon_block_root,
         } = header;
 
-        Self {
-            parent_hash,
-            uncles_hash,
-            miner: author,
-            state_root,
-            transactions_root,
-            receipts_root,
-            logs_bloom,
+        Ok(Self {
+            base_fee_per_gas: base_fee_per_gas.map(|v| v.to()),
+            beneficiary: author,
+            blob_gas_used: blob_gas_used.map(|v| v.to()),
             difficulty,
-            number,
+            excess_blob_gas: excess_blob_gas.map(|v| v.to()),
+            extra_data: extra_data.into(),
             gas_limit: gas_limit.to(),
             gas_used: gas_used.to(),
-            timestamp,
-            extra_data: extra_data.into(),
-            mix_hash,
-            nonce,
-            base_fee_per_gas: base_fee_per_gas.map(|v| v.to()),
-            withdrawals_root,
-            blob_gas_used: blob_gas_used.map(|v| v.to()),
-            excess_blob_gas: excess_blob_gas.map(|v| v.to()),
-            hash,
+            logs_bloom,
+            mix_hash: mix_hash.ok_or(HeaderConversionError(
+                "Mix hash is missing when converting from alloy consensus Header".to_string(),
+            ))?,
+            nonce: nonce.ok_or(HeaderConversionError(
+                "Nonce is missing when converting from alloy consensus Header".to_string(),
+            ))?,
+            number,
+            ommers_hash: uncles_hash,
             parent_beacon_block_root: parent_beacon_block_root.map(|h264| h264.0.into()),
-            // We don't have access to total_difficulty
-            total_difficulty: None,
-            requests_root: None,
-        }
+            parent_hash,
+            receipts_root,
+            requests_hash: None,
+            state_root,
+            timestamp,
+            transactions_root,
+            withdrawals_root,
+        })
     }
 }
 

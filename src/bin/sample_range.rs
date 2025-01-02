@@ -7,6 +7,7 @@ use alloy::{
     eips::BlockNumberOrTag,
     primitives::B256,
     providers::{Provider, ProviderBuilder},
+    rpc::types::BlockTransactionsKind,
 };
 use anyhow::Result;
 use clap::Parser;
@@ -115,7 +116,10 @@ pub async fn main() -> Result<()> {
         let provider = provider.clone();
         async move {
             let block_hash = provider
-                .get_block_by_number(BlockNumberOrTag::Number(block_number), false)
+                .get_block_by_number(
+                    BlockNumberOrTag::Number(block_number),
+                    BlockTransactionsKind::Hashes,
+                )
                 .await
                 .unwrap()
                 .unwrap()
