@@ -44,7 +44,6 @@ serde = { workspace = true, features = ["rc"] }
 serde-this-or-that.workspace = true
 serde_json.workspace = true
 sha2 = "0.10.1"
-sha3.workspace = true
 shadow-rs = "0.27"
 ssz_types.workspace = true
 superstruct = "0.7.0"
