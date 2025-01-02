@@ -12,9 +12,9 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-alloy = { workspace = true, features = ["eips", "rpc-types-engine", "serde"] }
+alloy = { workspace = true, features = ["eips", "serde"] }
 alloy-rlp.workspace = true
-alloy-rpc-types-engine = { version = "0.4.2", default-features = false, features = ["serde"] }
+alloy-rpc-types-engine = { version = "0.9.1", default-features = false, features = ["serde"] }
 anyhow.workspace = true
 clap.workspace = true
 ethportal-api.workspace = true
